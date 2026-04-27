@@ -28,6 +28,7 @@ class DownloadResponse(BaseModel):
     error_message: str | None
     indexer: str | None
     transmission_id: int | None
+    audiobook_id: int | None
     created_at: datetime
     updated_at: datetime
 

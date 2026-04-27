@@ -1,5 +1,6 @@
 """Downloads management router."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,8 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_session
 from ..models import Download, DownloadStatus, User
 from ..schemas.download import DownloadCreate, DownloadResponse
+from ..services.library import LibraryImportError, TorrentInfo, import_download_to_library
 from ..services.transmission import TransmissionClient
 from .auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 
@@ -24,29 +28,69 @@ async def list_downloads(
     result = await session.execute(
         select(Download).order_by(Download.created_at.desc())
     )
-    downloads = result.scalars().all()
+    downloads = list(result.scalars().all())
 
     # Update status from Transmission for active downloads
-    client = TransmissionClient()
-    for download in downloads:
-        if download.transmission_id and download.status in (
-            DownloadStatus.PENDING,
-            DownloadStatus.DOWNLOADING,
-            DownloadStatus.SEEDING,
-        ):
-            torrent = client.get_torrent(download.transmission_id)
-            if torrent:
-                download.progress = torrent["progress"]
-                if torrent["progress"] >= 100:
-                    download.status = DownloadStatus.SEEDING
-                elif torrent["error"]:
-                    download.status = DownloadStatus.FAILED
-                    download.error_message = torrent["error_string"]
-                else:
-                    download.status = DownloadStatus.DOWNLOADING
+    downloads_to_remove = []
+    try:
+        client = TransmissionClient()
+        for download in downloads:
+            # Check PENDING, DOWNLOADING, and SEEDING (to retry failed imports)
+            if download.transmission_id and download.status in (
+                DownloadStatus.PENDING,
+                DownloadStatus.DOWNLOADING,
+                DownloadStatus.SEEDING,
+            ):
+                torrent = client.get_torrent(download.transmission_id)
+                if torrent:
+                    download.progress = torrent["progress"]
+                    if torrent["progress"] >= 100:
+                        # Download complete - auto-import to library
+                        try:
+                            torrent_info = TorrentInfo(
+                                download_dir=torrent["download_dir"],
+                                name=torrent["name"],
+                            )
+                            await import_download_to_library(
+                                download,
+                                session,
+                                delete_after_import=True,
+                                torrent_info=torrent_info,
+                                transmission_client=client,
+                            )
+                            downloads_to_remove.append(download)
+                            logger.info(f"Auto-imported '{download.title}' to library")
+                        except LibraryImportError as e:
+                            # Import failed, mark as seeding so user can see it
+                            download.status = DownloadStatus.SEEDING
+                            download.error_message = f"Auto-import failed: {e}"
+                            logger.warning(
+                                f"Auto-import failed for '{download.title}': {e}"
+                            )
+                        except Exception as e:
+                            # Unexpected error during import
+                            download.status = DownloadStatus.SEEDING
+                            download.error_message = f"Auto-import failed: {e}"
+                            logger.exception(
+                                f"Unexpected error auto-importing '{download.title}': {e}"
+                            )
+                    elif torrent["error"]:
+                        download.status = DownloadStatus.FAILED
+                        download.error_message = torrent["error_string"]
+                    elif download.status != DownloadStatus.SEEDING:
+                        # Only set to DOWNLOADING if not already SEEDING
+                        download.status = DownloadStatus.DOWNLOADING
+        await session.commit()
+        # Refresh remaining downloads
+        for download in downloads:
+            if download not in downloads_to_remove:
+                await session.refresh(download)
+    except Exception as e:
+        logger.warning(f"Error updating download status from Transmission: {e}")
 
-    await session.commit()
-    return [DownloadResponse.model_validate(d) for d in downloads]
+    # Filter out imported downloads
+    remaining = [d for d in downloads if d not in downloads_to_remove]
+    return [DownloadResponse.model_validate(d) for d in remaining]
 
 
 @router.post("", response_model=DownloadResponse, status_code=status.HTTP_201_CREATED)
@@ -121,13 +165,39 @@ async def get_download(
         if torrent:
             download.progress = torrent["progress"]
             if torrent["progress"] >= 100:
-                download.status = DownloadStatus.SEEDING
+                # Download complete - auto-import to library
+                try:
+                    torrent_info = TorrentInfo(
+                        download_dir=torrent["download_dir"],
+                        name=torrent["name"],
+                    )
+                    audiobook = await import_download_to_library(
+                        download,
+                        session,
+                        delete_after_import=True,
+                        torrent_info=torrent_info,
+                        transmission_client=client,
+                    )
+                    # Return a response indicating it was imported
+                    raise HTTPException(
+                        status_code=status.HTTP_303_SEE_OTHER,
+                        detail=f"Download imported to library as audiobook {audiobook.id}",
+                        headers={"Location": f"/api/library/{audiobook.id}"},
+                    )
+                except LibraryImportError as e:
+                    download.status = DownloadStatus.SEEDING
+                    download.error_message = f"Auto-import failed: {e}"
+                except Exception as e:
+                    download.status = DownloadStatus.SEEDING
+                    download.error_message = f"Auto-import failed: {e}"
+                    logger.exception(f"Unexpected error auto-importing '{download.title}'")
             elif torrent["error"]:
                 download.status = DownloadStatus.FAILED
                 download.error_message = torrent["error_string"]
-            else:
+            elif download.status != DownloadStatus.SEEDING:
                 download.status = DownloadStatus.DOWNLOADING
             await session.commit()
+            await session.refresh(download)
 
     return DownloadResponse.model_validate(download)
 
@@ -152,8 +222,12 @@ async def delete_download(
 
     # Remove from Transmission if present
     if download.transmission_id:
-        client = TransmissionClient()
-        client.remove_torrent(download.transmission_id, delete_data=delete_data)
+        try:
+            client = TransmissionClient()
+            client.remove_torrent(download.transmission_id, delete_data=delete_data)
+        except Exception:
+            pass  # Ignore errors if torrent doesn't exist in Transmission
 
-    download.status = DownloadStatus.CANCELLED
+    # Delete from database
+    await session.delete(download)
     await session.commit()

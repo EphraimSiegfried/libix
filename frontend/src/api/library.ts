@@ -23,3 +23,7 @@ export async function getAudiobook(id: number): Promise<Audiobook> {
 export async function scanLibrary(): Promise<{ added: number; skipped: number }> {
   return api.post('/library/scan')
 }
+
+export async function importDownload(downloadId: number): Promise<Audiobook> {
+  return api.post<Audiobook>(`/library/import/${downloadId}`)
+}

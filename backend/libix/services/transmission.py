@@ -1,11 +1,16 @@
 """Transmission RPC client."""
 
+import base64
+import logging
 from urllib.parse import urlparse
 
+import httpx
 from transmission_rpc import Client as TransmissionRPCClient
 from transmission_rpc.error import TransmissionError
 
 from ..config import get_config
+
+logger = logging.getLogger(__name__)
 
 
 class TransmissionClient:
@@ -25,7 +30,9 @@ class TransmissionClient:
             parsed = urlparse(self.url)
             host = parsed.hostname or "localhost"
             port = parsed.port or 9091
-            path = parsed.path or "/transmission/rpc"
+            # transmission-rpc expects path without trailing slash
+            # and handles /rpc suffix internally in some versions
+            path = parsed.path.rstrip("/") if parsed.path else "/transmission/rpc"
 
             self._client = TransmissionRPCClient(
                 host=host,
@@ -35,6 +42,35 @@ class TransmissionClient:
                 password=self.password,
             )
         return self._client
+
+    def _download_torrent_file(self, url: str) -> str | None:
+        """Download a torrent file and return base64-encoded content.
+
+        Args:
+            url: URL to the torrent file.
+
+        Returns:
+            Base64-encoded torrent file content, or None if redirected to magnet.
+        """
+        # Don't follow redirects automatically - we need to check for magnet redirects
+        with httpx.Client(follow_redirects=False, timeout=30.0) as http_client:
+            response = http_client.get(url)
+
+            # Handle redirects manually to catch magnet links
+            redirect_count = 0
+            while response.is_redirect and redirect_count < 10:
+                redirect_count += 1
+                location = response.headers.get("location", "")
+
+                # Check if redirecting to a magnet link
+                if location.lower().startswith("magnet:"):
+                    return location  # Return the magnet link itself
+
+                # Follow the redirect
+                response = http_client.get(location)
+
+            response.raise_for_status()
+            return base64.b64encode(response.content).decode("ascii")
 
     def add_torrent(
         self,
@@ -53,11 +89,50 @@ class TransmissionClient:
             Dictionary with torrent info including 'id'.
         """
         client = self._get_client()
-        torrent = client.add_torrent(
-            url_or_magnet,
-            download_dir=download_dir or self.download_dir,
-            paused=paused,
-        )
+
+        url_or_magnet = url_or_magnet.strip()
+        url_lower = url_or_magnet.lower()
+
+        logger.info(f"add_torrent called with URL: {url_or_magnet[:100]}...")
+        logger.info(f"URL starts with magnet: {url_lower.startswith('magnet:')}")
+
+        # Detect if it's a magnet link (handle both magnet: and magnet:// formats, case-insensitive)
+        is_magnet = url_lower.startswith("magnet:")
+
+        if is_magnet:
+            # Normalize magnet:// to magnet:? if needed (some indexers use wrong format)
+            if url_lower.startswith("magnet://"):
+                url_or_magnet = "magnet:?" + url_or_magnet[9:]
+            # Magnet links go directly to Transmission
+            torrent = client.add_torrent(
+                url_or_magnet,
+                download_dir=download_dir or self.download_dir,
+                paused=paused,
+            )
+        elif url_lower.startswith("http://") or url_lower.startswith("https://"):
+            # Download torrent file (may return magnet link if Prowlarr redirects)
+            torrent_data = self._download_torrent_file(url_or_magnet)
+
+            # Check if we got a magnet link back (from redirect)
+            if torrent_data and torrent_data.lower().startswith("magnet:"):
+                # Normalize magnet:// to magnet:? if needed
+                if torrent_data.lower().startswith("magnet://"):
+                    torrent_data = "magnet:?" + torrent_data[9:]
+                torrent = client.add_torrent(
+                    torrent_data,
+                    download_dir=download_dir or self.download_dir,
+                    paused=paused,
+                )
+            else:
+                # It's base64-encoded torrent file data
+                torrent = client.add_torrent(
+                    torrent_data,
+                    download_dir=download_dir or self.download_dir,
+                    paused=paused,
+                )
+        else:
+            raise ValueError(f"Unsupported URL format: {url_or_magnet[:50]}")
+
         return {
             "id": torrent.id,
             "name": torrent.name,
@@ -73,8 +148,8 @@ class TransmissionClient:
         Returns:
             Torrent info dict or None if not found.
         """
-        client = self._get_client()
         try:
+            client = self._get_client()
             torrents = client.get_torrents(ids=[torrent_id])
             if not torrents:
                 return None
@@ -89,7 +164,7 @@ class TransmissionClient:
                 "error": t.error,
                 "error_string": t.error_string,
             }
-        except TransmissionError:
+        except (TransmissionError, Exception):
             return None
 
     def get_all_torrents(self) -> list[dict]:
@@ -128,6 +203,36 @@ class TransmissionClient:
             return True
         except TransmissionError:
             return False
+
+    def get_torrent_files(self, torrent_id: int) -> dict | None:
+        """Get torrent files and download location.
+
+        Args:
+            torrent_id: Transmission torrent ID.
+
+        Returns:
+            Dict with download_dir, name, and files list, or None if not found.
+        """
+        try:
+            client = self._get_client()
+            torrents = client.get_torrents(ids=[torrent_id])
+            if not torrents:
+                return None
+            t = torrents[0]
+            return {
+                "download_dir": t.download_dir,
+                "name": t.name,
+                "files": [
+                    {
+                        "name": f.name,
+                        "size": f.size,
+                        "completed": f.completed,
+                    }
+                    for f in t.files()
+                ],
+            }
+        except (TransmissionError, Exception):
+            return None
 
     def test_connection(self) -> tuple[bool, str, dict | None]:
         """Test connection to Transmission.

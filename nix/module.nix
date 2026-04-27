@@ -33,6 +33,26 @@ in
       description = "Directory to store Libix data.";
     };
 
+    downloadDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        Transmission download directory that Libix needs access to.
+        Required for importing completed downloads to the library.
+      '';
+      example = "/var/lib/transmission/downloads";
+    };
+
+    extraGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        Additional groups for the libix user.
+        Add "transmission" to allow access to Transmission downloads.
+      '';
+      example = [ "transmission" ];
+    };
+
     settings = lib.mkOption {
       type = settingsFormat.type;
       default = { };
@@ -75,6 +95,7 @@ in
       group = cfg.group;
       home = cfg.dataDir;
       createHome = true;
+      extraGroups = cfg.extraGroups;
     };
 
     users.groups.${cfg.group} = { };
@@ -97,7 +118,7 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        ReadWritePaths = [ cfg.dataDir ];
+        ReadWritePaths = [ cfg.dataDir ] ++ lib.optional (cfg.downloadDir != null) cfg.downloadDir;
         CapabilityBoundingSet = "";
         SystemCallArchitectures = "native";
       };

@@ -10,8 +10,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib (but not frontend/src/lib which is source code)
+/lib/
 lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -70,3 +72,5 @@ config.dev.yaml
 *.log
 *.tmp
 .cache/
+.direnv
+test-library

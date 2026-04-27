@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_config
 from ..database import get_session
-from ..models import Audiobook, User
+from ..models import Audiobook, Download, User
+from ..models.download import DownloadStatus
 from ..schemas.library import AudiobookResponse
+from ..services import LibraryImportError, import_download_to_library
 from .auth import get_current_user
 
 router = APIRouter(prefix="/api/library", tags=["library"])
@@ -95,3 +97,44 @@ async def scan_library(
 
     await session.commit()
     return {"added": added, "skipped": skipped}
+
+
+@router.post("/import/{download_id}", response_model=AudiobookResponse)
+async def import_download_endpoint(
+    download_id: int,
+    _current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> AudiobookResponse:
+    """Import a completed download to the library.
+
+    Moves files from download directory to library and creates an Audiobook record.
+    This endpoint is used for manual import when auto-import failed.
+    """
+    # Get the download
+    result = await session.execute(
+        select(Download).where(Download.id == download_id)
+    )
+    download = result.scalar_one_or_none()
+    if download is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download not found",
+        )
+
+    # Validate download is in SEEDING status (100% complete, auto-import failed)
+    if download.status != DownloadStatus.SEEDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Download must be in SEEDING status to import (current: {download.status.value})",
+        )
+
+    try:
+        audiobook = await import_download_to_library(
+            download, session, delete_after_import=True
+        )
+        return AudiobookResponse.model_validate(audiobook)
+    except LibraryImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )

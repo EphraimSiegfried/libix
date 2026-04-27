@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDownloads, deleteDownload, Download } from '@/api/downloads'
+import { importDownload } from '@/api/library'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -13,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
 import { formatBytes } from '@/lib/utils'
-import { Trash2, RefreshCw } from 'lucide-react'
+import { Trash2, RefreshCw, FolderInput } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,25 @@ export default function Downloads() {
         variant: 'destructive',
         title: 'Failed to remove download',
         description: error instanceof Error ? error.message : 'Failed to remove download',
+      })
+    },
+  })
+
+  const importMutation = useMutation({
+    mutationFn: (id: number) => importDownload(id),
+    onSuccess: (audiobook) => {
+      queryClient.invalidateQueries({ queryKey: ['downloads'] })
+      queryClient.invalidateQueries({ queryKey: ['audiobooks'] })
+      toast({
+        title: 'Imported to library',
+        description: `"${audiobook.title}" has been added to your library.`,
+      })
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to import',
+        description: error instanceof Error ? error.message : 'Failed to import download',
       })
     },
   })
@@ -135,34 +155,47 @@ export default function Downloads() {
                   </TableCell>
                   <TableCell>{formatBytes(download.size_bytes)}</TableCell>
                   <TableCell>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    <div className="flex items-center gap-1">
+                      {download.status === 'seeding' && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive"
+                          onClick={() => importMutation.mutate(download.id)}
+                          disabled={importMutation.isPending}
+                          title="Retry Import to Library"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <FolderInput className="h-4 w-4" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remove download?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will remove the download from the queue. The
-                            downloaded files will not be deleted.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteMutation.mutate(download.id)}
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
                           >
-                            Remove
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove download?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will remove the download from the queue. The
+                              downloaded files will not be deleted.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteMutation.mutate(download.id)}
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

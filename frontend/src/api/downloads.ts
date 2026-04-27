@@ -11,6 +11,7 @@ export interface Download {
   error_message: string | null
   indexer: string | null
   transmission_id: number | null
+  audiobook_id: number | null
   created_at: string
   updated_at: string
 }
