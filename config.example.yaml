@@ -1,10 +1,14 @@
 # Libix Configuration
 # Copy this file to config.yaml and modify as needed
+#
+# Secrets can be passed directly or via file (for sops-nix, agenix, etc.)
+# File-based secrets take precedence over direct values.
 
 server:
   host: "0.0.0.0"
   port: 8080
-  secret_key: "change-me-in-production"  # Used for JWT signing
+  # secret_key: "change-me-in-production"
+  secret_key_file: "/run/secrets/libix-secret-key"
 
 database:
   path: "/var/lib/libix/libix.db"
@@ -13,28 +17,30 @@ library:
   path: "/media/audiobooks"
 
 auth:
-  # Initial admin user (created on first run if no users exist)
   initial_admin:
     username: "admin"
-    password: "admin"  # Change this immediately after first login!
+    # password: "admin"
+    password_file: "/run/secrets/libix-admin-password"
   jwt_expiry_hours: 24
 
 prowlarr:
   url: "http://localhost:9696"
-  api_key: "your-api-key"
-  # Or use file-based secret (compatible with sops-nix, agenix):
-  # api_key_file: "/run/secrets/prowlarr-api-key"
-
-  # Search settings
+  # api_key: "your-api-key"
+  api_key_file: "/run/secrets/prowlarr-api-key"
   categories: [3030]  # 3030 = Audiobooks
   limit: 100
 
 transmission:
   url: "http://localhost:9091/transmission/rpc"
   username: "admin"
-  password: "password"
-  # Or use file-based secret:
-  # password_file: "/run/secrets/transmission-password"
-
-  # Download settings
+  # password: "password"
+  password_file: "/run/secrets/transmission-password"
   download_dir: "/downloads/audiobooks"
+
+audnexus:
+  url: "https://api.audnex.us"
+  enabled: true
+
+audiobookbay:
+  enabled: true
+  url: "https://audiobookbay.is"
