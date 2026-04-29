@@ -30,7 +30,10 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 border-r bg-muted/40 p-4 flex flex-col">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">Libix</h1>
+          <div className="flex items-center gap-2">
+            <img src="/libix.svg" alt="Libix" className="h-8 w-8" />
+            <h1 className="text-2xl font-bold">Libix</h1>
+          </div>
           <p className="text-sm text-muted-foreground">Audiobook Manager</p>
         </div>
 

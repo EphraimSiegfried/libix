@@ -1,10 +1,73 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+
+function BouncingCat() {
+  const [position, setPosition] = useState({ x: 100, y: 100 })
+  const [velocity, setVelocity] = useState({ x: 2, y: 1.5 })
+  const [rotation, setRotation] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const catSize = 80
+
+  useEffect(() => {
+    const animate = () => {
+      setPosition((pos) => {
+        const container = containerRef.current?.parentElement
+        if (!container) return pos
+
+        const maxX = container.clientWidth - catSize
+        const maxY = container.clientHeight - catSize
+
+        let newX = pos.x + velocity.x
+        let newY = pos.y + velocity.y
+        let newVelX = velocity.x
+        let newVelY = velocity.y
+
+        // Bounce off walls
+        if (newX <= 0 || newX >= maxX) {
+          newVelX = -velocity.x
+          newX = newX <= 0 ? 0 : maxX
+        }
+        if (newY <= 0 || newY >= maxY) {
+          newVelY = -velocity.y
+          newY = newY <= 0 ? 0 : maxY
+        }
+
+        if (newVelX !== velocity.x || newVelY !== velocity.y) {
+          setVelocity({ x: newVelX, y: newVelY })
+        }
+
+        return { x: newX, y: newY }
+      })
+
+      setRotation((r) => (r + 1) % 360)
+    }
+
+    const interval = setInterval(animate, 16)
+    return () => clearInterval(interval)
+  }, [velocity])
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden pointer-events-none">
+      <img
+        src="/libix.svg"
+        alt=""
+        className="absolute opacity-20"
+        style={{
+          width: catSize,
+          height: catSize,
+          left: position.x,
+          top: position.y,
+          transform: `rotate(${rotation}deg)`,
+        }}
+      />
+    </div>
+  )
+}
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -31,8 +94,9 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-[350px]">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      <BouncingCat />
+      <Card className="relative z-10 w-[350px]">
         <CardHeader>
           <CardTitle>Libix</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Headphone band -->
+  <path d="M15 45 Q15 15 50 15 Q85 15 85 45" fill="none" stroke="#6366f1" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Left ear cup -->
+  <ellipse cx="15" cy="52" rx="12" ry="16" fill="#6366f1"/>
+  <ellipse cx="15" cy="52" rx="8" ry="11" fill="#4f46e5"/>
+
+  <!-- Right ear cup -->
+  <ellipse cx="85" cy="52" rx="12" ry="16" fill="#6366f1"/>
+  <ellipse cx="85" cy="52" rx="8" ry="11" fill="#4f46e5"/>
+
+  <!-- Cat face -->
+  <ellipse cx="50" cy="58" rx="28" ry="24" fill="#fbbf24"/>
+
+  <!-- Cat ears -->
+  <polygon points="28,38 22,18 38,30" fill="#fbbf24"/>
+  <polygon points="72,38 78,18 62,30" fill="#fbbf24"/>
+  <polygon points="30,36 26,22 36,31" fill="#fca5a5"/>
+  <polygon points="70,36 74,22 64,31" fill="#fca5a5"/>
+
+  <!-- Eyes -->
+  <ellipse cx="40" cy="54" rx="5" ry="6" fill="#1f2937"/>
+  <ellipse cx="60" cy="54" rx="5" ry="6" fill="#1f2937"/>
+  <ellipse cx="41" cy="52" rx="2" ry="2.5" fill="white"/>
+  <ellipse cx="61" cy="52" rx="2" ry="2.5" fill="white"/>
+
+  <!-- Nose -->
+  <ellipse cx="50" cy="64" rx="3" ry="2.5" fill="#f87171"/>
+
+  <!-- Mouth -->
+  <path d="M50 66 Q50 71 45 71" fill="none" stroke="#1f2937" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M50 66 Q50 71 55 71" fill="none" stroke="#1f2937" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Whiskers -->
+  <line x1="30" y1="62" x2="18" y2="58" stroke="#1f2937" stroke-width="1.2"/>
+  <line x1="30" y1="66" x2="18" y2="66" stroke="#1f2937" stroke-width="1.2"/>
+  <line x1="30" y1="70" x2="18" y2="74" stroke="#1f2937" stroke-width="1.2"/>
+  <line x1="70" y1="62" x2="82" y2="58" stroke="#1f2937" stroke-width="1.2"/>
+  <line x1="70" y1="66" x2="82" y2="66" stroke="#1f2937" stroke-width="1.2"/>
+  <line x1="70" y1="70" x2="82" y2="74" stroke="#1f2937" stroke-width="1.2"/>
+</svg>
