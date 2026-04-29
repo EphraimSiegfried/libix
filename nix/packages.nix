@@ -63,18 +63,17 @@
 
           # Copy backend
           cp -r ${self'.packages.backend}/lib $out/lib
-          cp -r ${self'.packages.backend}/bin/* $out/bin/
 
           # Copy frontend static files
           cp -r ${self'.packages.frontend}/* $out/share/libix/static/
 
-          # Create wrapper script
-          cat > $out/bin/libix-wrapped <<'WRAPPER'
+          # Create wrapper script that sets LIBIX_STATIC_DIR
+          cat > $out/bin/libix <<WRAPPER
           #!/usr/bin/env bash
-          export LIBIX_STATIC_DIR="$(dirname "$(dirname "$(readlink -f "$0")")")/share/libix/static"
-          exec "$(dirname "$0")/libix" "$@"
+          export LIBIX_STATIC_DIR="$out/share/libix/static"
+          exec ${self'.packages.backend}/bin/libix "\$@"
           WRAPPER
-          chmod +x $out/bin/libix-wrapped
+          chmod +x $out/bin/libix
         '';
 
         meta = {

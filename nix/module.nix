@@ -11,8 +11,9 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.callPackage ./package.nix { };
-      description = "The Libix package to use.";
+      default = pkgs.libix;
+      defaultText = lib.literalExpression "pkgs.libix";
+      description = "The Libix package to use. Requires the libix overlay.";
     };
 
     user = lib.mkOption {
@@ -109,6 +110,7 @@ in
         Type = "simple";
         User = cfg.user;
         Group = cfg.group;
+        SupplementaryGroups = cfg.extraGroups;
         ExecStart = "${cfg.package}/bin/libix -c ${configFile}";
         Restart = "on-failure";
         RestartSec = 5;
@@ -116,9 +118,6 @@ in
         # Hardening
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        ReadWritePaths = [ cfg.dataDir ] ++ lib.optional (cfg.downloadDir != null) cfg.downloadDir;
         CapabilityBoundingSet = "";
         SystemCallArchitectures = "native";
       };
