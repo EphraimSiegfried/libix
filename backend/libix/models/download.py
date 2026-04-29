@@ -39,6 +39,17 @@ class Download(Base):
     indexer: Mapped[str | None] = mapped_column(String(100))
     added_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     audiobook_id: Mapped[int | None] = mapped_column(ForeignKey("audiobooks.id"))
+    # Metadata fields from search
+    metadata_asin: Mapped[str | None] = mapped_column(String(20))
+    metadata_open_library_key: Mapped[str | None] = mapped_column(String(50))
+    metadata_author: Mapped[str | None] = mapped_column(String(255))
+    metadata_narrator: Mapped[str | None] = mapped_column(String(255))
+    metadata_description: Mapped[str | None] = mapped_column(Text)
+    metadata_duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    metadata_cover_url: Mapped[str | None] = mapped_column(String(2000))
+    metadata_series_name: Mapped[str | None] = mapped_column(String(500))
+    metadata_series_position: Mapped[str | None] = mapped_column(String(20))
+    metadata_language: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

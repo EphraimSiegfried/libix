@@ -1,5 +1,6 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/hooks/use-theme'
 import { Button } from '@/components/ui/button'
 import {
   Search,
@@ -8,6 +9,8 @@ import {
   Settings,
   Users,
   LogOut,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +23,7 @@ const navItems = [
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
 
   return (
     <div className="flex h-screen">
@@ -67,7 +71,28 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="border-t pt-4">
+        <div className="border-t pt-4 space-y-3">
+          {/* Theme toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleTheme}
+            className="w-full justify-start gap-2"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun className="h-4 w-4" />
+                Light Mode
+              </>
+            ) : (
+              <>
+                <Moon className="h-4 w-4" />
+                Dark Mode
+              </>
+            )}
+          </Button>
+
+          {/* User info */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">{user?.username}</p>

@@ -74,12 +74,15 @@ export default function Downloads() {
 
   const importMutation = useMutation({
     mutationFn: (id: number) => importDownload(id),
-    onSuccess: (audiobook) => {
+    onSuccess: (audiobooks) => {
       queryClient.invalidateQueries({ queryKey: ['downloads'] })
       queryClient.invalidateQueries({ queryKey: ['audiobooks'] })
+      const count = audiobooks.length
       toast({
         title: 'Imported to library',
-        description: `"${audiobook.title}" has been added to your library.`,
+        description: count === 1
+          ? `"${audiobooks[0].title}" has been added to your library.`
+          : `${count} audiobooks have been added to your library.`,
       })
     },
     onError: (error) => {

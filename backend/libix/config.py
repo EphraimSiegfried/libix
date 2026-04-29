@@ -80,6 +80,16 @@ class TransmissionConfig(BaseModel):
         return resolve_secret(self.password, self.password_file)
 
 
+class AudnexusConfig(BaseModel):
+    url: str = "https://api.audnex.us"
+    enabled: bool = True
+
+
+class AudioBookBayConfig(BaseModel):
+    enabled: bool = True
+    url: str = "https://audiobookbay.is"
+
+
 class Config(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -87,6 +97,8 @@ class Config(BaseModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     prowlarr: ProwlarrConfig = Field(default_factory=ProwlarrConfig)
     transmission: TransmissionConfig = Field(default_factory=TransmissionConfig)
+    audnexus: AudnexusConfig = Field(default_factory=AudnexusConfig)
+    audiobookbay: AudioBookBayConfig = Field(default_factory=AudioBookBayConfig)
 
 
 def load_config(config_path: str | None = None) -> Config:

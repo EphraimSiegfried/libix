@@ -109,14 +109,25 @@ async def add_download(
         )
 
     # Create download record
+    # Prefer info_url (torrent page link) over download_url (torrent file link) for source
     download = Download(
         title=download_data.title,
-        source_url=download_data.download_url,
+        source_url=download_data.info_url or download_data.download_url,
         magnet_or_torrent=url_or_magnet,
         status=DownloadStatus.PENDING,
         size_bytes=download_data.size,
         indexer=download_data.indexer,
         added_by_id=current_user.id,
+        metadata_asin=download_data.metadata_asin,
+        metadata_open_library_key=download_data.metadata_open_library_key,
+        metadata_author=download_data.metadata_author,
+        metadata_narrator=download_data.metadata_narrator,
+        metadata_description=download_data.metadata_description,
+        metadata_duration_seconds=download_data.metadata_duration_seconds,
+        metadata_cover_url=download_data.metadata_cover_url,
+        metadata_series_name=download_data.metadata_series_name,
+        metadata_series_position=download_data.metadata_series_position,
+        metadata_language=download_data.metadata_language,
     )
     session.add(download)
     await session.flush()
@@ -171,7 +182,7 @@ async def get_download(
                         download_dir=torrent["download_dir"],
                         name=torrent["name"],
                     )
-                    audiobook = await import_download_to_library(
+                    audiobooks = await import_download_to_library(
                         download,
                         session,
                         delete_after_import=True,
@@ -179,11 +190,12 @@ async def get_download(
                         transmission_client=client,
                     )
                     # Return a response indicating it was imported
-                    raise HTTPException(
-                        status_code=status.HTTP_303_SEE_OTHER,
-                        detail=f"Download imported to library as audiobook {audiobook.id}",
-                        headers={"Location": f"/api/library/{audiobook.id}"},
-                    )
+                    if audiobooks:
+                        raise HTTPException(
+                            status_code=status.HTTP_303_SEE_OTHER,
+                            detail=f"Download imported to library as {len(audiobooks)} audiobook(s)",
+                            headers={"Location": f"/api/library/{audiobooks[0].id}"},
+                        )
                 except LibraryImportError as e:
                     download.status = DownloadStatus.SEEDING
                     download.error_message = f"Auto-import failed: {e}"

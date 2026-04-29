@@ -35,6 +35,49 @@ def ensure_db_directory() -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
+def _migrate_add_missing_columns(connection) -> None:
+    """Add missing columns to existing tables (simple migration)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(connection)
+
+    # Define columns to add if missing: (table_name, column_name, column_type, default)
+    migrations = [
+        # Audiobook table
+        ("audiobooks", "cover_image_url", "VARCHAR(2000)", None),
+        ("audiobooks", "asin", "VARCHAR(20)", None),
+        ("audiobooks", "series_name", "VARCHAR(500)", None),
+        ("audiobooks", "series_position", "VARCHAR(20)", None),
+        ("audiobooks", "release_date", "DATE", None),
+        ("audiobooks", "open_library_key", "VARCHAR(50)", None),
+        ("audiobooks", "indexer", "VARCHAR(100)", None),
+        ("audiobooks", "source_url", "VARCHAR(2000)", None),
+        ("audiobooks", "added_by_id", "INTEGER", None),
+        ("audiobooks", "language", "VARCHAR(50)", None),
+        # Download table
+        ("downloads", "metadata_asin", "VARCHAR(20)", None),
+        ("downloads", "metadata_open_library_key", "VARCHAR(50)", None),
+        ("downloads", "metadata_author", "VARCHAR(255)", None),
+        ("downloads", "metadata_narrator", "VARCHAR(255)", None),
+        ("downloads", "metadata_description", "TEXT", None),
+        ("downloads", "metadata_duration_seconds", "INTEGER", None),
+        ("downloads", "metadata_cover_url", "VARCHAR(2000)", None),
+        ("downloads", "metadata_series_name", "VARCHAR(500)", None),
+        ("downloads", "metadata_series_position", "VARCHAR(20)", None),
+        ("downloads", "metadata_language", "VARCHAR(50)", None),
+    ]
+
+    for table_name, column_name, column_type, default in migrations:
+        if not inspector.has_table(table_name):
+            continue
+
+        existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+        if column_name not in existing_columns:
+            default_clause = f" DEFAULT {default}" if default is not None else ""
+            sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}{default_clause}"
+            connection.execute(text(sql))
+
+
 async def init_db() -> None:
     """Initialize the database, creating tables if needed."""
     global _engine, _async_session_factory
@@ -63,6 +106,9 @@ async def init_db() -> None:
     from . import models  # noqa: F401
 
     async with _engine.begin() as conn:
+        # First, run migrations to add any missing columns
+        await conn.run_sync(_migrate_add_missing_columns)
+        # Then create any missing tables
         await conn.run_sync(Base.metadata.create_all)
 
 

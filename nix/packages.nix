@@ -39,7 +39,7 @@
         version = "0.1.0";
         src = ../frontend;
 
-        npmDepsHash = "sha256-8t/CZEEg25tCT0rkrNBHp5CCT1aG1GGzS6Ccn0nEjzI=";
+        npmDepsHash = "sha256-cwuyYMuAQ1X6vcWiGXySdUwfizKE2bqLRWYl8QCgFoQ=";
 
         installPhase = ''
           runHook preInstall

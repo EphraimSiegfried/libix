@@ -14,6 +14,7 @@ from .config import get_config, load_config, set_config
 from .database import close_db, get_session, init_db
 from .routers import (
     auth_router,
+    covers_router,
     downloads_router,
     library_router,
     search_router,
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(downloads_router)
     app.include_router(library_router)
     app.include_router(settings_router)
+    app.include_router(covers_router)
 
     # Health check endpoint (no auth required)
     @app.get("/api/health")
