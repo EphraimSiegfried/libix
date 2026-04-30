@@ -75,7 +75,20 @@ def create_app() -> FastAPI:
     # Serve static files if LIBIX_STATIC_DIR is set (production bundle)
     static_dir = os.environ.get("LIBIX_STATIC_DIR")
     if static_dir and Path(static_dir).exists():
-        app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+        from fastapi.responses import FileResponse
+
+        # Serve static assets (js, css, images, etc.)
+        app.mount("/assets", StaticFiles(directory=Path(static_dir) / "assets"), name="assets")
+
+        # SPA fallback - serve index.html for all non-API routes
+        @app.get("/{path:path}")
+        async def spa_fallback(path: str):
+            # Check if it's a static file that exists
+            file_path = Path(static_dir) / path
+            if file_path.is_file():
+                return FileResponse(file_path)
+            # Otherwise serve index.html for SPA routing
+            return FileResponse(Path(static_dir) / "index.html")
 
     return app
 
